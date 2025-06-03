@@ -1,0 +1,7 @@
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
+SMTP_HOST=smtp.yourprovider.com
+SMTP_PORT=587
+SMTP_USER=your_smtp_username
+SMTP_PASS=your_smtp_password
+EMAIL_FROM=alerts@yourdomain.com
+EMAIL_TO=ops@yourdomain.com,admin@yourdomain.com
