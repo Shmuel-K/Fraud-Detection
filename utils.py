@@ -6,7 +6,6 @@ import uuid
 import time
 from datetime import datetime
 
-import polars as pl
 import pandas as pd
 from sqlalchemy import create_engine, text
 import sqlalchemy
@@ -14,10 +13,14 @@ import sqlalchemy
 # ——— Database connection ———
 SERVER = 'CND3420Y19'
 DATABASE = 'TransactionsDB'
-engine = create_engine(
-    f'mssql+pyodbc://@{SERVER}/{DATABASE}?trusted_connection=yes&driver=ODBC+Driver+17+for+SQL+Server',
-    connect_args={'fast_executemany': True}
-)
+try:
+    engine = create_engine(
+        f'mssql+pyodbc://@{SERVER}/{DATABASE}?trusted_connection=yes&driver=ODBC+Driver+17+for+SQL+Server',
+        connect_args={'fast_executemany': True}
+    )
+except Exception as e:  # ModuleNotFoundError or ODBC errors
+    print(f"[utils] Database engine unavailable: {e}")
+    engine = None
 
 # ——— Cache for historical fraud rate ———
 _cache = {}
@@ -45,28 +48,23 @@ def process_uploaded_file(contents: str) -> pd.DataFrame | None:
                 lines = lines[2:]
 
         csv_data = "\n".join(lines)
-        df_pl = pl.read_csv(io.StringIO(csv_data), try_parse_dates=False)
+        df = pd.read_csv(io.StringIO(csv_data))
 
         # clean column names
-        clean_cols = [c.replace('[','').replace(']','').strip() for c in df_pl.columns]
-        df_pl.columns = clean_cols
-        df_pl = df_pl.fill_null(0)
+        df.columns = [c.replace('[', '').replace(']', '').strip() for c in df.columns]
+        df = df.fillna(0)
 
         # add transaction_id
-        df_pl = df_pl.with_columns(
-            pl.Series("transaction_id", [str(uuid.uuid4())] * df_pl.height)
-        )
+        df['transaction_id'] = [str(uuid.uuid4())] * len(df)
 
         # cast types
-        if 'fraud' in df_pl.columns:
-            df_pl = df_pl.with_columns([
-                pl.col("amount").cast(pl.Float64),
-                pl.col("fraud").cast(pl.Int64)
-            ]).filter(pl.col("fraud").is_in([0,1]))
+        if 'fraud' in df.columns:
+            df = df.astype({'amount': 'float64', 'fraud': 'int64'})
+            df = df[df['fraud'].isin([0,1])]
         else:
-            df_pl = df_pl.with_columns(pl.col("amount").cast(pl.Float64))
+            df = df.astype({'amount': 'float64'})
 
-        return df_pl.to_pandas()
+        return df
 
     except Exception as e:
         print(f"[utils] Error in process_uploaded_file: {e}")
