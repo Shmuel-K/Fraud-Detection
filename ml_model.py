@@ -22,6 +22,14 @@ def train_fraud_model():
         print(f"[ml_model] Model file '{model_path}' exists; skipping retrain.")
         return
 
+    # If the database engine isn't available, save a default model immediately
+    if engine is None:
+        print("[ml_model] No database engine; saving default model.")
+        default_model = xgb.XGBClassifier(use_label_encoder=False, eval_metric='logloss')
+        with open(model_path, "wb") as f:
+            pickle.dump(default_model, f)
+        return
+
     # 1) Identify tables with a 'fraud' column
     schema_sql = """
     SELECT m.table_name

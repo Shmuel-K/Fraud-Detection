@@ -8,7 +8,11 @@ import ssl
 from email.mime.text import MIMEText
 from requests.exceptions import RequestException
 from pathlib import Path
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except Exception:  # module not installed
+    def load_dotenv(*a, **k):
+        return False
 
 # ——— Load your `env` file (not “.env”) ———
 env_path = Path(__file__).parent / "env"
